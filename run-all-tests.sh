@@ -21,7 +21,7 @@ FAILED_TESTS=0
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Docker Desktop Security Test Suite                       ║${NC}"
-echo -e "${BLUE}║  ECI & Air-Gapped Container Testing                        ║${NC}"
+echo -e "${BLUE}║  ECI & Enterprise Air-Gapped Container Testing             ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -91,12 +91,30 @@ fi
 
 # Run Air-Gap Tests
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Phase 2: Air-Gapped Container Tests                      ║${NC}"
+echo -e "${BLUE}║  Phase 2: Enterprise Air-Gapped Container Tests            ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+if [ -f tests/airgap/config_tests.sh ]; then
+  run_test_suite "Air-Gap Configuration" "tests/airgap/config_tests.sh"
+else
+  echo -e "${YELLOW}⚠ Skipping: tests/airgap/config_tests.sh not found${NC}"
+fi
+
+if [ -f tests/airgap/pac_tests.sh ]; then
+  run_test_suite "PAC File Rules" "tests/airgap/pac_tests.sh"
+else
+  echo -e "${YELLOW}⚠ Skipping: tests/airgap/pac_tests.sh not found${NC}"
+fi
+
+if [ -f tests/airgap/proxy_routing_tests.sh ]; then
+  run_test_suite "Proxy Routing" "tests/airgap/proxy_routing_tests.sh"
+else
+  echo -e "${YELLOW}⚠ Skipping: tests/airgap/proxy_routing_tests.sh not found${NC}"
+fi
+
 if [ -f tests/airgap/network_isolation.sh ]; then
-  run_test_suite "Air-Gap Network Isolation" "tests/airgap/network_isolation.sh"
+  run_test_suite "Basic Network Isolation" "tests/airgap/network_isolation.sh"
 else
   echo -e "${YELLOW}⚠ Skipping: tests/airgap/network_isolation.sh not found${NC}"
 fi
