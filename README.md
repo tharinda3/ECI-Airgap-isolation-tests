@@ -1,69 +1,21 @@
-# ECI + Air-Gapped Containers Security Validation
+# Docker Enterprise Security Validation Suite
 
-**Prove that containerized malware cannot compromise your host or network when Docker's enterprise security features are enabled.**
+Validate that Docker Enterprise security features protect containerized workloads from malicious container attacks.
 
 ## 🎯 Purpose
 
-This test suite validates that Docker Desktop's **Enhanced Container Isolation (ECI)** and **Air-gapped Containers**, when configured together via Settings Management, provide comprehensive protection against containerized threats.
+This test suite validates three critical Docker Enterprise security features:
 
-### What This Proves
-
-When both features are properly enabled:
-- ✅ Malware **cannot** access the host filesystem
-- ✅ Malware **cannot** see or kill host processes  
-- ✅ Malware **cannot** communicate with external networks
-- ✅ Malware **cannot** exfiltrate stolen data
-- ✅ Malware **cannot** escape the container
-- ✅ Malware **cannot** persist after container stops
+1. **Enhanced Container Isolation (ECI)**: Prevents containers from executing system calls to the host
+2. **Air-Gapped Containers**: Restricts container network access to approved destinations only
+3. **Docker Scout**: Identifies and tracks vulnerabilities in container images
 
 ## 📋 Prerequisites
 
-### Required
-- **Docker Business Subscription** (both features require this)
+- **Docker Business Subscription**
 - **Docker Desktop 4.29+**
-- **Admin access** to [Docker Admin Console](https://admin.docker.com)
-
-### Administrator Setup
-
-**1. Enable Settings Management**
-- Log in to Docker Admin Console
-- Go to **Organization Settings** → **Security**
-- Enable **Settings Management**
-
-**2. Configure Enhanced Container Isolation (ECI)**
-- In Settings Management, enable **Enhanced Container Isolation**
-- **Lock** the setting (prevents users from disabling)
-- Deploy to all organization members
-
-**3. Configure Air-Gapped Containers**
-- In Settings Management → **Network Security**
-- Configure **Containers Proxy**:
-  - **Mode**: Manual
-  - **Locked**: Yes
-  - **Transparent Ports**: `*` (all ports)
-  
-**Choose a policy:**
-
-**Option A: Complete Isolation** (Highest Security)
-```
-HTTP Proxy: [empty]
-HTTPS Proxy: [empty]
-Exclude List: [empty]
-```
-Result: All external network access blocked
-
-**Option B: Selective Access** (Development-Friendly)
-```
-HTTP Proxy: [empty]
-HTTPS Proxy: [empty]
-Exclude List: docker.io, github.com, npmjs.com
-```
-Result: Only approved domains accessible
-
-**4. Deploy Configuration**
-- Click **Deploy** in Admin Console
-- Settings push to users automatically
-- Users restart Docker Desktop to apply
+- **Admin access** to Docker Admin Console
+- Settings Management enabled for ECI and Air-Gap
 
 ## 🚀 Quick Start
 
@@ -72,197 +24,180 @@ Result: Only approved domains accessible
 git clone https://github.com/tharinda3/ECI-Airgap-isolation-tests.git
 cd ECI-Airgap-isolation-tests
 
-# Run all validation tests
+# Run all tests
 ./run-all-tests.sh
+
+# Run individual tests
+./tests/1_syscall_validation.sh      # Test ECI system call isolation
+./tests/2_airgap_validation.sh       # Test air-gap network control
+./tests/3_docker_scout_scan.sh       # Test vulnerability scanning
 ```
 
-## 📊 Test Results
+## 📊 Test Suite Overview
 
-After running the tests, you'll see:
+### Test 1: System Call Validation (ECI)
+**What it tests**: Enhanced Container Isolation prevents containers from executing system calls to the host machine.
 
-```
-╔════════════════════════════════════════════════════════════╗
-║  Docker Desktop Security Validation Suite                  ║
-║  ECI + Air-Gapped Containers Protection Testing            ║
-╚════════════════════════════════════════════════════════════╝
+**Key scenarios**:
+- Hostname changes (blocked by ECI)
+- Kernel memory access (blocked by ECI)
+- Filesystem mounting (blocked by ECI)
+- Kernel module loading (blocked by ECI)
+- System time modification (blocked by ECI)
+- Host process access (blocked by ECI)
+- Hardware device access (blocked by ECI)
 
-Phase 1: ECI Protection Tests
-✓ PASS: Host filesystem isolated
-✓ PASS: Host processes invisible
-✓ PASS: Container escapes contained
+**Evidence generated**: `syscall_results.txt` - Before/after comparison showing ECI protection
 
-Phase 2: Air-Gapped Container Tests  
-✓ PASS: External network blocked
-✓ PASS: DNS tunneling prevented
-✓ PASS: Configuration bypass failed
+### Test 2: Air-Gap Network Validation
+**What it tests**: Air-gapped containers prevent malicious network access while allowing approved destinations.
 
-Phase 3: Combined Protection Validation
-✓ PASS: Multi-vector attack blocked
-✓ PASS: Filesystem + network attacks both fail
-✓ PASS: Privileged escape + exfiltration blocked
+**Configuration**: Only docker.com and docker.io are accessible
+- All other public URLs blocked
+- HTTP/HTTPS ports 80 and 443 only
+- Non-standard ports blocked
+- DNS tunneling prevented
 
-═══════════════════════════════════════════════════
-✓ SECURITY VALIDATED
-ECI + Air-gapped Containers successfully protect host
-from containerized threats. All attacks were blocked.
-═══════════════════════════════════════════════════
-```
+**Key scenarios**:
+- docker.com access (allowed)
+- google.com access (blocked)
+- github.com access (blocked)
+- External URLs (blocked)
+- Alternative ports (blocked)
 
-## 🧪 What Gets Tested
+**Evidence generated**: `air_gap_results.txt` - Before/after network access comparison
 
-### Phase 1: ECI Protection
-Tests that Enhanced Container Isolation prevents host access:
-- Host filesystem access attempts (blocked)
-- Host process enumeration (blocked)
-- Container escape exploits (contained in VM)
-- Docker socket access (blocked)
+### Test 3: Docker Scout Vulnerability Scanning
+**What it tests**: Docker Scout enables administrators to identify and track vulnerabilities in container images.
 
-### Phase 2: Air-Gapped Network Protection
-Tests that network policies prevent data exfiltration:
-- External HTTP/HTTPS connections (blocked)
-- DNS tunneling attempts (blocked)
-- Alternative protocol access (blocked)
-- Configuration bypass attempts (failed)
+**Capabilities**:
+- Automatic image scanning and indexing
+- Software Bill of Materials (SBOM) generation
+- Vulnerability identification (Critical/High/Medium/Low)
+- Before/after remediation tracking
 
-### Phase 3: Combined Multi-Vector Protection
-Tests that both protections work together:
-- Simultaneous filesystem + network attacks (both blocked)
-- Process enumeration + C2 communication (both blocked)
-- Container escape + lateral movement (both blocked)
-- Persistence attempts + beaconing (both blocked)
+**Process**:
+1. Enable Docker Scout in organization
+2. Push images to registry (auto-scanned)
+3. View SBOM and vulnerabilities
+4. Update vulnerable packages
+5. Re-scan to verify remediation
 
-### Phase 4: Real Malware Simulations
-Simulates actual malicious containers:
-- **Crypto Miner**: CPU-intensive with C2 communication
-- **Data Stealer**: Searches for credentials and attempts exfiltration
-- **Container Escape**: Exploits known vulnerabilities
+**Evidence generated**: `docker_scout_results.txt` - Setup guide and remediation tracking
 
-## 📁 Repository Structure
+## 🔧 Configuration
 
-```
-.
-├── TEST-PLAN.md              # Comprehensive test methodology
-├── run-all-tests.sh          # Master test runner
-├── tests/
-│   ├── eci/                  # Enhanced Container Isolation tests
-│   │   ├── filesystem_isolation.sh
-│   │   └── process_isolation.sh
-│   ├── airgap/               # Air-gapped container tests
-│   │   ├── config_tests.sh
-│   │   ├── pac_tests.sh
-│   │   └── proxy_routing_tests.sh
-│   ├── combined/             # Multi-layer protection tests
-│   │   └── protection_validation.sh
-│   └── attacks/              # Malware simulations
-│       ├── crypto_miner.Dockerfile
-│       ├── data_stealer.Dockerfile
-│       └── container_escape.Dockerfile
-└── test-results-*/           # Generated reports (after running tests)
-```
+### Enable Enhanced Container Isolation (ECI)
 
-## 🔍 Verification for End Users
+**Via Docker Admin Console:**
+1. Go to Settings Management
+2. Enable "Enhanced Container Isolation"
+3. Lock the setting
+4. Deploy to organization
 
-Users can verify protection is active:
-
+**Verify ECI is working:**
 ```bash
-# Verify ECI is working (should show <10 processes)
-docker run --rm alpine ps aux | wc -l
-
-# Verify air-gap is working (should fail/timeout)
-docker run --rm alpine wget -T 2 http://google.com
-
-# Verify settings are locked
-# Open Docker Desktop → Settings should show "Managed by organization"
+docker run --rm alpine ps aux | wc -l  # Should show < 10 processes
 ```
 
-## 📖 Detailed Documentation
+### Configure Air-Gapped Containers
 
-See **[TEST-PLAN.md](TEST-PLAN.md)** for:
-- Complete threat model and attack scenarios
-- Detailed test case descriptions
-- Success criteria and risk assessment
-- Troubleshooting guide
-- Production deployment checklist
+**Via Docker Admin Console:**
+```json
+{
+  "configurationFileVersion": 2,
+  "containersProxy": {
+    "locked": true,
+    "mode": "manual",
+    "http": "",
+    "https": "",
+    "exclude": ["docker.com", "*.docker.com"],
+    "transparentPorts": "80,443"
+  }
+}
+```
 
-## 🎓 Understanding the Protection Layers
+**Deploy:**
+1. Configure in Settings Management
+2. Click Deploy
+3. Users restart Docker Desktop
 
-### Layer 1: Enhanced Container Isolation (ECI)
-- Runs containers in a **Linux VM** (on macOS/Windows)
-- Provides **VM-level boundary** between containers and host
-- Protects against container escape exploits
-- Even privileged containers can't reach actual host
+**Verify air-gap is working:**
+```bash
+# Should succeed
+docker run --rm alpine wget -q -O- https://docker.com
 
-### Layer 2: Air-Gapped Containers
-- **Network policy enforcement** via Settings Management
-- Blocks or controls all container network access
-- Prevents data exfiltration and C2 communication
-- Cannot be bypassed by users or malware
+# Should fail
+docker run --rm alpine wget -q -O- https://google.com
+```
 
-### Layer 3: Settings Management
-- **Admin-controlled** configuration
-- **Locked settings** users cannot modify
-- **Centrally deployed** via Docker Admin Console
-- **Compliance enforcement** across organization
+### Enable Docker Scout
 
-### Result: Defense-in-Depth
-Multiple independent security layers ensure comprehensive protection.
+**Via Docker Hub:**
+1. Go to Repository Settings
+2. Enable "Docker Scout"
+3. Enable "Index on push"
 
-## ⚠️ Common Issues
+**Verify Scout is enabled:**
+```bash
+docker scout cves <image>
+```
 
-**Tests showing external network access when it should be blocked?**
-- Verify air-gap policy is deployed in Docker Admin Console
-- Check policy deployment status
-- Restart Docker Desktop on affected machines
-
-**Tests showing host filesystem access?**
-- Verify ECI is enabled in Admin Console
-- Check Docker Desktop version (4.29+ required)
-- Ensure Settings Management is active
-
-**Container functionality broken?**
-- Adjust air-gap policy (Option B instead of Option A)
-- Add required domains to exclude list
-- Use PAC file for fine-grained control
-
-## 📊 Test Reports
+## 📈 Test Results
 
 After running tests, detailed reports are generated in `test-results-[timestamp]/`:
-- `summary-report.md` - Executive summary and findings
-- Individual test logs for each suite
-- System configuration information
-- Recommendations for any failures
 
-## 🔐 Security Posture Statement
+- `summary-report.md` - Executive summary of all test results
+- `syscall_results.txt` - ECI system call validation results
+- `air_gap_results.txt` - Air-gap network validation results
+- `docker_scout_results.txt` - Docker Scout configuration and setup
+- `system-info.txt` - Environment details
 
-**When all tests pass, you can confidently state:**
+## ✅ Success Criteria
 
-> "Our Docker Desktop deployment, with Enhanced Container Isolation and Air-gapped Containers enabled via Settings Management, provides strong protection against containerized threats. Comprehensive testing validates that malware running inside containers cannot access our host systems, cannot exfiltrate data to external networks, and cannot persist beyond the container lifecycle. Our multi-layered security approach has been thoroughly validated."
+### Test 1 Passes When:
+- ✅ All 7 system calls blocked WITH ECI
+- ✅ Before/after comparison documents difference
+- ✅ Evidence shows ECI prevents host compromise
 
-## 🤝 For Docker Administrators
+### Test 2 Passes When:
+- ✅ docker.com accessible WITH air-gap
+- ✅ google.com blocked WITH air-gap
+- ✅ All other URLs blocked
+- ✅ Non-standard ports blocked
 
-This test suite is designed to:
-1. **Validate** that your security configuration is working
-2. **Prove** protection to stakeholders and compliance teams
-3. **Document** security posture for audits
-4. **Monitor** ongoing effectiveness after changes
+### Test 3 Passes When:
+- ✅ Docker Scout enabled and operational
+- ✅ Images indexed automatically
+- ✅ SBOM generated and accessible
+- ✅ Vulnerabilities identified
+- ✅ Remediation tracked
 
-Run this suite:
-- ✅ After initial configuration
-- ✅ After Docker Desktop updates
-- ✅ Monthly as part of security reviews
-- ✅ After any policy changes
+## 🔐 Security Statement
 
-## 📚 Additional Resources
+**When all tests pass, you can state:**
 
-- [Docker Admin Console](https://admin.docker.com)
-- [Enhanced Container Isolation Documentation](https://docs.docker.com/desktop/hardened-desktop/enhanced-container-isolation/)
-- [Air-Gapped Containers Documentation](https://docs.docker.com/enterprise/security/hardened-desktop/air-gapped-containers/)
-- [Settings Management Guide](https://docs.docker.com/desktop/hardened-desktop/settings-management/)
+> We have validated Docker Enterprise security features:
+>
+> 1. **ECI Protection**: Enhanced Container Isolation prevents containers from accessing host resources, blocking lateral movement and host compromise attacks.
+>
+> 2. **Air-Gap Protection**: Air-gapped Containers restrict network communication to approved destinations only, preventing data exfiltration and command-and-control communication.
+>
+> 3. **Scout Vulnerability Management**: Docker Scout enables automatic vulnerability identification and tracking through SBOM analysis, enabling rapid remediation.
+>
+> These combined controls provide comprehensive protection for containerized workloads.
+
+## 📚 Documentation
+
+See **[TEST-PLAN.md](TEST-PLAN.md)** for detailed test methodology based on official Docker documentation:
+- https://docs.docker.com/enterprise/security/hardened-desktop/enhanced-container-isolation/
+- https://docs.docker.com/enterprise/security/hardened-desktop/air-gapped-containers/
+- https://docs.docker.com/scout/
 
 ## 📝 License
 
-MIT License - See LICENSE file for details
+MIT License
 
 ---
 
-**Questions?** Open an issue or contact Docker support for enterprise configuration assistance.
+**Questions?** Refer to Docker Enterprise documentation or contact Docker support.
