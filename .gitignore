@@ -1,10 +1,10 @@
 # Test results
 test-results-*/
 
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
 # Logs
 *.log
