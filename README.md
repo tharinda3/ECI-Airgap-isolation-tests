@@ -2,7 +2,7 @@
 
 Validate that Docker Enterprise security features protect containerized workloads from malicious container attacks.
 
-## 🎯 Purpose
+## Purpose
 
 This test suite validates three critical Docker Enterprise security features:
 
@@ -10,62 +10,74 @@ This test suite validates three critical Docker Enterprise security features:
 2. **Air-Gapped Containers**: Restricts container network access to approved destinations only
 3. **Docker Scout**: Identifies and tracks vulnerabilities in container images
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Docker Business Subscription**
-- **Docker Desktop 4.29+**
+- **Docker Desktop 4.29+** with WSL2 backend
+- **Windows 10/11 with WSL2** - install by running in PowerShell as Administrator:
+  ```
+  wsl --install
+  ```
 - **Admin access** to Docker Admin Console
 - Settings Management enabled for ECI and Air-Gap
 
-## 🚀 Quick Start
+> **WSL2 Integration**: In Docker Desktop go to Settings -> Resources -> WSL Integration and enable it for your WSL2 distro.
 
+## Quick Start
+
+**Windows CMD** (calls WSL2 automatically):
+```
+git clone https://github.com/tharinda3/ECI-Airgap-isolation-tests.git
+cd ECI-Airgap-isolation-tests
+run-all-tests.bat
+```
+
+**Windows WSL2 terminal**:
 ```bash
-# Clone repository
 git clone https://github.com/tharinda3/ECI-Airgap-isolation-tests.git
 cd ECI-Airgap-isolation-tests
 
 # Run all tests
-./run-all-tests.sh
+bash run-all-tests.sh
 
 # Run individual tests
-./tests/1_syscall_validation.sh      # Test ECI system call isolation
-./tests/2_airgap_validation.sh       # Test air-gap network control
-./tests/3_docker_scout_scan.sh       # Test vulnerability scanning
+bash tests/1_syscall_validation.sh      # Test ECI system call isolation
+bash tests/2_airgap_validation.sh       # Test air-gap network control
+bash tests/3_docker_scout_scan.sh       # Test vulnerability scanning
 ```
 
-## 📊 Test Suite Overview
+## Test Suite Overview
 
 ### Test 1: System Call Validation (ECI)
 **What it tests**: Enhanced Container Isolation prevents containers from executing system calls to the host machine.
 
-**Key scenarios**:
+**Key scenarios** (7 tests):
 - Hostname changes (blocked by ECI)
 - Kernel memory access (blocked by ECI)
 - Filesystem mounting (blocked by ECI)
 - Kernel module loading (blocked by ECI)
 - System time modification (blocked by ECI)
-- Host process access (blocked by ECI)
+- Host process access / PID namespace isolation (blocked by ECI)
 - Hardware device access (blocked by ECI)
 
-**Evidence generated**: `syscall_results.txt` - Before/after comparison showing ECI protection
+**Evidence generated**: `syscall_results.txt`
 
 ### Test 2: Air-Gap Network Validation
 **What it tests**: Air-gapped containers prevent malicious network access while allowing approved destinations.
 
-**Configuration**: Only docker.com and docker.io are accessible
-- All other public URLs blocked
-- HTTP/HTTPS ports 80 and 443 only
-- Non-standard ports blocked
-- DNS tunneling prevented
+**Policy**: Only `docker.com` and `*.docker.com` on port 443 are accessible.
 
-**Key scenarios**:
-- docker.com access (allowed)
-- google.com access (blocked)
-- github.com access (blocked)
-- External URLs (blocked)
-- Alternative ports (blocked)
+> **Note**: `docker.io` is a **separate domain** from `docker.com` and is not covered by the `*.docker.com` pattern. It will be blocked by this policy.
 
-**Evidence generated**: `air_gap_results.txt` - Before/after network access comparison
+**Key scenarios** (6 tests):
+- docker.com HTTPS (allowed)
+- google.com HTTPS (blocked)
+- github.com HTTPS (blocked)
+- HTTP port 80 (blocked - only port 443 in transparentPorts)
+- Port 8080 (blocked)
+- Direct IP access 8.8.8.8 (blocked - prevents allowlist bypass)
+
+**Evidence generated**: `air_gap_results.txt`
 
 ### Test 3: Docker Scout Vulnerability Scanning
 **What it tests**: Docker Scout enables administrators to identify and track vulnerabilities in container images.
@@ -76,16 +88,9 @@ cd ECI-Airgap-isolation-tests
 - Vulnerability identification (Critical/High/Medium/Low)
 - Before/after remediation tracking
 
-**Process**:
-1. Enable Docker Scout in organization
-2. Push images to registry (auto-scanned)
-3. View SBOM and vulnerabilities
-4. Update vulnerable packages
-5. Re-scan to verify remediation
+**Evidence generated**: `docker_scout_results.txt`
 
-**Evidence generated**: `docker_scout_results.txt` - Setup guide and remediation tracking
-
-## 🔧 Configuration
+## Configuration
 
 ### Enable Enhanced Container Isolation (ECI)
 
@@ -94,15 +99,16 @@ cd ECI-Airgap-isolation-tests
 2. Enable "Enhanced Container Isolation"
 3. Lock the setting
 4. Deploy to organization
+5. Users restart Docker Desktop
 
-**Verify ECI is working:**
+**Verify ECI is active:**
 ```bash
 docker run --rm alpine ps aux | wc -l  # Should show < 10 processes
 ```
 
 ### Configure Air-Gapped Containers
 
-**Via Docker Admin Console:**
+**Via Docker Admin Console (Settings Management):**
 ```json
 {
   "configurationFileVersion": 2,
@@ -112,17 +118,19 @@ docker run --rm alpine ps aux | wc -l  # Should show < 10 processes
     "http": "",
     "https": "",
     "exclude": ["docker.com", "*.docker.com"],
-    "transparentPorts": "80,443"
+    "transparentPorts": "443"
   }
 }
 ```
+
+> Setting `transparentPorts` to `443` only (not `80,443`) ensures HTTP port 80 is also blocked.
 
 **Deploy:**
 1. Configure in Settings Management
 2. Click Deploy
 3. Users restart Docker Desktop
 
-**Verify air-gap is working:**
+**Verify air-gap is active:**
 ```bash
 # Should succeed
 docker run --rm alpine wget -q -O- https://docker.com
@@ -143,9 +151,9 @@ docker run --rm alpine wget -q -O- https://google.com
 docker scout cves <image>
 ```
 
-## 📈 Test Results
+## Test Results
 
-After running tests, detailed reports are generated in `test-results-[timestamp]/`:
+After running tests, reports are generated in `test-results-[timestamp]/`:
 
 - `summary-report.md` - Executive summary of all test results
 - `syscall_results.txt` - ECI system call validation results
@@ -153,27 +161,25 @@ After running tests, detailed reports are generated in `test-results-[timestamp]
 - `docker_scout_results.txt` - Docker Scout configuration and setup
 - `system-info.txt` - Environment details
 
-## ✅ Success Criteria
+## Success Criteria
 
 ### Test 1 Passes When:
-- ✅ All 7 system calls blocked WITH ECI
-- ✅ Before/after comparison documents difference
-- ✅ Evidence shows ECI prevents host compromise
+- At least 6 of 7 system calls blocked WITH ECI enabled
+- Evidence shows ECI prevents host compromise
 
 ### Test 2 Passes When:
-- ✅ docker.com accessible WITH air-gap
-- ✅ google.com blocked WITH air-gap
-- ✅ All other URLs blocked
-- ✅ Non-standard ports blocked
+- docker.com accessible WITH air-gap enabled
+- google.com and github.com blocked
+- HTTP port 80 and port 8080 blocked
+- Direct IP access blocked
 
 ### Test 3 Passes When:
-- ✅ Docker Scout enabled and operational
-- ✅ Images indexed automatically
-- ✅ SBOM generated and accessible
-- ✅ Vulnerabilities identified
-- ✅ Remediation tracked
+- Docker Scout enabled and images indexed
+- SBOM generated and accessible
+- Vulnerabilities identified
+- Remediation tracked with before/after comparison
 
-## 🔐 Security Statement
+## Security Statement
 
 **When all tests pass, you can state:**
 
@@ -187,14 +193,14 @@ After running tests, detailed reports are generated in `test-results-[timestamp]
 >
 > These combined controls provide comprehensive protection for containerized workloads.
 
-## 📚 Documentation
+## Documentation
 
-See **[TEST-PLAN.md](TEST-PLAN.md)** for detailed test methodology based on official Docker documentation:
+See **[test-plan.md](test-plan.md)** for detailed test methodology:
 - https://docs.docker.com/enterprise/security/hardened-desktop/enhanced-container-isolation/
 - https://docs.docker.com/enterprise/security/hardened-desktop/air-gapped-containers/
 - https://docs.docker.com/scout/
 
-## 📝 License
+## License
 
 MIT License
 

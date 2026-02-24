@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test 3: Docker Scout Vulnerability Scanning
 # Demonstrates how to enable Docker Scout for image scanning and SBOM tracking
+# Compatible with: Windows WSL2, Linux
 # Based on: https://docs.docker.com/scout/
 
 RED='\033[0;31m'
@@ -14,12 +15,20 @@ echo -e "${BLUE}║  Test 3: Docker Scout Vulnerability Scanning          ║${N
 echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Verify Docker is running
+if ! docker info > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: Docker is not running or not accessible.${NC}"
+    echo "  On Windows: Ensure Docker Desktop is running and WSL2 integration is enabled."
+    exit 1
+fi
+
 RESULTS_FILE="docker_scout_results.txt"
 {
     echo "Docker Scout Vulnerability Scanning Test Results"
     echo "================================================"
     echo "Date: $(date)"
     echo "Docker Version: $(docker --version)"
+    echo "Platform: Windows (WSL2)"
     echo ""
     echo "Purpose: Demonstrate Docker Scout's ability to identify and track"
     echo "vulnerabilities in container images using SBOM analysis."
@@ -31,7 +40,7 @@ echo "===================================="
 echo ""
 
 # Check if Docker Scout is available
-if ! docker scout --version &>/dev/null; then
+if ! docker scout --version > /dev/null 2>&1; then
     echo -e "${YELLOW}⚠ Docker Scout CLI not available${NC}"
     echo "To use Docker Scout, you need Docker Desktop with Scout enabled."
     {
@@ -40,8 +49,8 @@ if ! docker scout --version &>/dev/null; then
         echo ""
         echo "To enable Docker Scout:"
         echo "1. Ensure Docker Business subscription is active"
-        echo "2. Go to Docker Hub → Settings → Docker Scout → Enable"
-        echo "3. Use 'docker scout' commands"
+        echo "2. Go to Docker Hub -> Settings -> Docker Scout -> Enable"
+        echo "3. Use 'docker scout' commands from WSL2 or CMD"
     } >> "$RESULTS_FILE"
 else
     SCOUT_VERSION=$(docker scout --version)
@@ -62,7 +71,7 @@ echo "  1. Go to repository settings"
 echo "  2. Enable 'Docker Scout'"
 echo "  3. Enable 'Index on push'"
 echo ""
-echo "Via Docker CLI:"
+echo "Via Docker CLI (from WSL2 or CMD):"
 echo "  docker login"
 echo "  docker push <repository>/<image>:<tag>"
 echo ""
@@ -72,7 +81,7 @@ echo ""
     echo "=================================="
     echo ""
     echo "Enable Docker Scout image indexing:"
-    echo "  - Docker Hub Repository Settings → Docker Scout → Enable"
+    echo "  - Docker Hub Repository Settings -> Docker Scout -> Enable"
     echo "  - Enable 'Index on push' for automatic scanning"
     echo "  - Or manually scan with: docker scout cves <image>"
 } >> "$RESULTS_FILE"
@@ -82,34 +91,33 @@ echo "Step 2: View SBOM (Software Bill of Materials)"
 echo "=============================================="
 echo ""
 
-if docker scout --version &>/dev/null; then
+if docker scout --version > /dev/null 2>&1; then
     echo "Generating SBOM for local image (if available)..."
     {
         echo ""
         echo "Step 2: Generate and View SBOM"
         echo "=============================="
     } >> "$RESULTS_FILE"
-    
-    if docker images --format "{{.Repository}}:{{.Tag}}" | grep -v '<none>' | head -1 > /tmp/sample_image.txt 2>/dev/null; then
-        SAMPLE_IMAGE=$(cat /tmp/sample_image.txt)
-        if [ -n "$SAMPLE_IMAGE" ]; then
-            echo "Sample image found: $SAMPLE_IMAGE"
-            echo ""
-            echo "Generating SBOM..."
-            
-            if docker scout sbom "$SAMPLE_IMAGE" > /tmp/sbom_output.txt 2>&1; then
-                echo -e "${GREEN}✓ SBOM generated${NC}"
-                {
-                    echo ""
-                    echo "Sample image: $SAMPLE_IMAGE"
-                    echo ""
-                    echo "SBOM Output:"
-                    echo "----------"
-                } >> "$RESULTS_FILE"
-                head -30 /tmp/sbom_output.txt >> "$RESULTS_FILE"
-            else
-                echo "Could not generate SBOM for local image"
-            fi
+
+    SAMPLE_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v '<none>' | head -1 2>/dev/null || true)
+    if [ -n "$SAMPLE_IMAGE" ]; then
+        echo "Sample image found: $SAMPLE_IMAGE"
+        echo ""
+        echo "Generating SBOM..."
+
+        sbom_output=$(docker scout sbom "$SAMPLE_IMAGE" 2>&1 || true)
+        if [ -n "$sbom_output" ]; then
+            echo -e "${GREEN}✓ SBOM generated${NC}"
+            {
+                echo ""
+                echo "Sample image: $SAMPLE_IMAGE"
+                echo ""
+                echo "SBOM Output (first 30 lines):"
+                echo "-----------------------------"
+                echo "$sbom_output" | head -30
+            } >> "$RESULTS_FILE"
+        else
+            echo "Could not generate SBOM for local image"
         fi
     else
         echo "No local images available for SBOM generation"
@@ -121,15 +129,15 @@ fi
 {
     echo ""
     echo "SBOM Access Locations:"
-    echo "===================="
+    echo "======================"
     echo ""
     echo "In Docker Hub UI:"
-    echo "  - Repository → Image Details → SBOM"
+    echo "  - Repository -> Image Details -> SBOM"
     echo "  - Download SBOM in SPDX or CycloneDX format"
     echo ""
     echo "Via Docker CLI:"
-    echo "  docker scout sbom <image>              # View SBOM"
-    echo "  docker scout cves <image>              # View vulnerabilities"
+    echo "  docker scout sbom <image>               # View SBOM"
+    echo "  docker scout cves <image>               # View vulnerabilities"
     echo "  docker scout cves <image> --format json # JSON format"
 } >> "$RESULTS_FILE"
 
@@ -155,23 +163,21 @@ echo ""
     echo "  - Low: Monitor and update periodically"
 } >> "$RESULTS_FILE"
 
-if docker scout --version &>/dev/null; then
-    if docker images --format "{{.Repository}}:{{.Tag}}" | grep -v '<none>' | head -1 > /tmp/sample_image2.txt 2>/dev/null; then
-        SAMPLE_IMAGE2=$(cat /tmp/sample_image2.txt)
-        if [ -n "$SAMPLE_IMAGE2" ]; then
-            echo "Scanning for vulnerabilities in: $SAMPLE_IMAGE2"
-            
-            if docker scout cves "$SAMPLE_IMAGE2" > /tmp/cves_output.txt 2>&1; then
-                echo -e "${GREEN}✓ Vulnerability scan completed${NC}"
-                {
-                    echo ""
-                    echo "Vulnerability Scan Results:"
-                    echo "------------------------"
-                    echo "Image: $SAMPLE_IMAGE2"
-                    echo ""
-                } >> "$RESULTS_FILE"
-                head -40 /tmp/cves_output.txt >> "$RESULTS_FILE"
-            fi
+if docker scout --version > /dev/null 2>&1; then
+    SAMPLE_IMAGE2=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v '<none>' | head -1 2>/dev/null || true)
+    if [ -n "$SAMPLE_IMAGE2" ]; then
+        echo "Scanning for vulnerabilities in: $SAMPLE_IMAGE2"
+        cves_output=$(docker scout cves "$SAMPLE_IMAGE2" 2>&1 || true)
+        if [ -n "$cves_output" ]; then
+            echo -e "${GREEN}✓ Vulnerability scan completed${NC}"
+            {
+                echo ""
+                echo "Vulnerability Scan Results:"
+                echo "--------------------------"
+                echo "Image: $SAMPLE_IMAGE2"
+                echo ""
+                echo "$cves_output" | head -40
+            } >> "$RESULTS_FILE"
         fi
     fi
 fi
@@ -182,14 +188,14 @@ echo "==========================="
 echo ""
 echo "To fix vulnerabilities:"
 echo "  1. Update base image to latest version"
-echo "  2. Update packages: apk update && apk upgrade (Alpine)"
-echo "  3. Update packages: apt update && apt upgrade (Debian)"
+echo "  2. Update packages: apk update && apk upgrade  (Alpine)"
+echo "  3. Update packages: apt update && apt upgrade   (Debian)"
 echo "  4. Rebuild and push image"
 echo ""
 {
     echo ""
     echo "Step 4: Remediation"
-    echo "=================="
+    echo "==================="
     echo ""
     echo "Example Dockerfile updates:"
     echo "  FROM alpine:latest                   # Use latest base"
@@ -202,7 +208,7 @@ echo ""
 
 echo ""
 echo "Step 5: Re-scan After Remediation"
-echo "================================"
+echo "================================="
 echo ""
 echo "After applying fixes, re-scan to verify vulnerability reduction:"
 echo "  docker scout cves <image-after-fix>"
