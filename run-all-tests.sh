@@ -130,7 +130,7 @@ echo ""
     echo "| Passed | $PASSED_TESTS |"
     echo "| Failed | $FAILED_TESTS |"
     if [ "$TOTAL_TESTS" -gt 0 ]; then
-        echo "| Success Rate | $(awk "BEGIN {printf \"%.1f\", ($PASSED_TESTS/$TOTAL_TESTS)*100}")% |"
+        echo "| Success Rate | $(awk 'BEGIN {printf "%.1f", ('"$PASSED_TESTS"'/'"$TOTAL_TESTS"')*100}')% |"
     fi
     echo ""
     echo "## Test Details"
